@@ -1,7 +1,6 @@
 package ru.vld.camunda.test;
 
 import org.camunda.bpm.engine.ProcessEngine;
-import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.impl.cfg.StandaloneInMemProcessEngineConfiguration;
 import org.camunda.bpm.engine.runtime.Execution;
 import org.camunda.bpm.engine.runtime.Job;
@@ -67,10 +66,31 @@ public class ProcessTestCase {
         variables.put("a", 6);
         processEngine.getTaskService().complete(tasks.get(0).getId(), variables);
 
-        Execution execution = processEngine.getRuntimeService().createExecutionQuery().processInstanceId(pi.getId()).messageEventSubscriptionName("MSG_SOMETHING").singleResult();
+        Execution execution = processEngine.getRuntimeService().createExecutionQuery().processInstanceId(pi.getId())
+                .messageEventSubscriptionName("MSG_SOMETHING").singleResult();
         processEngine.getRuntimeService().messageEventReceived("MSG_SOMETHING", execution.getId());
 
         assertThat(pi).isStarted().isEnded().hasPassed("SuccessEndEvent");
+    }
+
+    @Test
+    @Deployment(resources = "smallSample.bpmn")
+    public void testSuccessProjectSmall(){
+        ProcessEngine processEngine = rule.getProcessEngine();
+
+        ProcessInstance pi = processEngine.getRuntimeService().startProcessInstanceByKey("sample");
+
+        assertThat(pi).task("DoSomethingUserTask").hasCandidateGroup("management");
+
+        List<Task> tasks = processEngine.getTaskService().createTaskQuery().taskCandidateGroup("management").list();
+        assertEquals(1, tasks.size());
+        assertEquals("DoSomethingUserTask", tasks.get(0).getTaskDefinitionKey());
+
+        Map<String, Object> variables = new HashMap<String, Object>();
+        variables.put("a", 3);
+        processEngine.getTaskService().complete(tasks.get(0).getId(), variables);
+
+        assertThat(pi).isStarted().isEnded().hasPassed("FailedEndEvent");
     }
 
 }
